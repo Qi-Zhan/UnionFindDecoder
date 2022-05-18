@@ -201,10 +201,6 @@ class Edge():
             return False
         elif self.state == edgeState.HalfGrown:
             self.state = edgeState.Grown
-            # if isinstance(self.u.rootbelong(), Cluster) and self.u.rootbelong().alive == False:
-            #     return False
-            # if isinstance(self.v.rootbelong(), Cluster) and self.v.rootbelong().alive == False:
-            #     return False
             return True
         elif self.state == edgeState.Grown:
             return False
@@ -215,7 +211,7 @@ class Edge():
         return False
     
     def __str__(self):
-        return str(self.u)+"->"+str(self.v) # +":"+str(self.state)
+        return str(self.u)+"->"+str(self.v)
     
     def __repr__(self):
         return str(self)
@@ -346,6 +342,7 @@ class Cluster():
             # update boundary
             c1.boundaryList += c2.boundaryList
             c1.edges += c2.edges
+            # c = self
             # print('parity', c1.parity)
             # print('belong', r1.rootbelong())
         else: # self->c
@@ -353,8 +350,9 @@ class Cluster():
             r1.belong = c2
             c2.parity += c1.parity
             # update boundary
-            c2.boundaryList += c1.boundaryList # 去重？
+            c2.boundaryList += c1.boundaryList
             c2.edges += c1.edges 
+            # self = c
             # print('parity',c2.parity)
             # print('belong', r2.rootbelong())
             
@@ -441,13 +439,14 @@ class UnionFindDecoder(Decoder):
         Returns:
             recoveryList (list): list contains recovery in (x, y)
         """
-        print('decoder!!!!!!!!!!!!!!!!!')
+        # print('decoder!!!!!!!!!!!!!!!!!')
         clusterList = self.initialCluster(syndromeList, graph)
         evenClusterList = []
-        while len(clusterList)>0: # odd cluster not empty            
-            # print('all',clusterList)
-            # print('even', evenClusterList)
-            clusterList.sort(key=lambda x: len(x.boundaryList))
+        while len(clusterList)>0: # odd cluster not empty      
+            if self.debug:      
+                print('all',clusterList)
+                print('even', evenClusterList)
+            clusterList.sort(key=lambda x: len(x.boundaryList)) # emm
             fusionList = []
             for cluster in clusterList:
                 fusionList += cluster.growHalf()
@@ -458,12 +457,10 @@ class UnionFindDecoder(Decoder):
                 if u.rootbelong() == None: # new vertex do not belong any cluster
                     u.belong = v.rootbelong
                     u.root = v
-                    # fusionList.remove(fusionEdge)
                     continue
                 if v.rootbelong() == None:
                     v.root = u
                     v.belong = u.rootbelong
-                    # fusionList.remove(fusionEdge)
                     continue
                 if u.find() == v.find():
                     continue
@@ -474,7 +471,6 @@ class UnionFindDecoder(Decoder):
                 if cluster.alive is False:
                     continue
                 if cluster.isEven(): # find even cluster
-                    cluster.alive = False
                     evenClusterList.append(cluster)
                 else:
                     remainList.append(cluster)    
@@ -483,7 +479,8 @@ class UnionFindDecoder(Decoder):
             for cluster in clusterList:  # remove not boundary vertex in boundaryList
                 cluster.cleanBoundary()
             
-        print(evenClusterList, self.syndrome)
+        if self.debug:
+            print('even', evenClusterList)
         treeList = self.spanningTree(evenClusterList)
         recoveryList = self.peeling(treeList)
         # print('union find procedure done!')    
@@ -524,11 +521,12 @@ class UnionFindDecoder(Decoder):
         # print(clusterList)
         treeList = []
         for cluster in clusterList:
-            cluster.cleanBoundary() # to do !!!
+            if cluster.alive:
+            # cluster.cleanBoundary() # to do !!!
             # print(cluster.edges, cluster.boundaryList)
             # print(cluster)
-            tree = cluster.cluster2Tree()
-            treeList.append(tree)
+                tree = cluster.cluster2Tree()
+                treeList.append(tree)
         
         # for tree in treeList: # test Depth First Search
         #     temp = [tree]
@@ -609,7 +607,6 @@ class UnionFindDecoder(Decoder):
         dim = int(math.sqrt(length))
         l = [0]*length
         for r in recoveryList:
-            # print(r)
             l[int(r[1])*dim+int(r[0])] = 1
         # print(recoveryList)
         return l
