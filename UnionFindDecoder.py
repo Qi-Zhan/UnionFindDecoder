@@ -346,6 +346,7 @@ class Cluster():
             # print('parity', c1.parity)
             # print('belong', r1.rootbelong())
         else: # self->c
+            # print(c1, '->', c2)
             c1.alive = False
             r1.belong = c2
             c2.parity += c1.parity
@@ -358,10 +359,11 @@ class Cluster():
             
     def cleanBoundary(self):
         self.boundaryList = list(set(self.boundaryList)) # to do!!!
-        boundaryListCopy = deepcopy(self.boundaryList)
-        for boudary in boundaryListCopy:
-            if boudary.isInsideVertex():
-                self.boundaryList.remove(boudary)
+        for i in range(len(self.boundaryList)-1,-1,-1):
+            boundary = self.boundaryList[i]
+            if boundary.isInsideVertex():
+                self.boundaryList.remove(boundary)
+
                 
     def cluster2Tree(self):
         edges = self.edges
@@ -439,17 +441,18 @@ class UnionFindDecoder(Decoder):
         Returns:
             recoveryList (list): list contains recovery in (x, y)
         """
-        # print('decoder!!!!!!!!!!!!!!!!!')
         clusterList = self.initialCluster(syndromeList, graph)
         evenClusterList = []
         while len(clusterList)>0: # odd cluster not empty      
             if self.debug:      
                 print('all',clusterList)
                 print('even', evenClusterList)
-            clusterList.sort(key=lambda x: len(x.boundaryList)) # emm
+            # clusterList.sort(key=lambda x: len(x.boundaryList)) # emm
             fusionList = []
             for cluster in clusterList:
-                fusionList += cluster.growHalf()
+                if cluster.isEven()==False:
+                    fusionList += cluster.growHalf()
+            # print(fusionList)
             for fusionEdge in fusionList:
                 # print(fusionEdge)
                 u = fusionEdge.fstVertex()
@@ -462,28 +465,33 @@ class UnionFindDecoder(Decoder):
                     v.root = u
                     v.belong = u.rootbelong
                     continue
-                if u.find() == v.find():
-                    continue
-                else: 
+                if u.find() != v.find():
                     u.rootbelong().merge(v.rootbelong())
-            remainList = []
-            for cluster in clusterList: 
+                    
+            for i in range(len(clusterList)-1,-1,-1):
+                cluster = clusterList[i]
                 if cluster.alive is False:
-                    continue
-                if cluster.isEven(): # find even cluster
+                    clusterList.remove(cluster)
+                elif cluster.isEven(): # find even cluster
                     evenClusterList.append(cluster)
-                else:
-                    remainList.append(cluster)    
-            clusterList = remainList
-            # print(clusterList)
+                    clusterList.remove(cluster)
+
+            for i in range(len(evenClusterList)-1,-1,-1):
+                cluster = evenClusterList[i]
+            # for cluster in evenClusterList:
+                if cluster.alive and cluster.isEven() is False:
+                    clusterList.append(cluster)
+                    evenClusterList.remove(cluster)
+                if cluster.alive == False:
+                    evenClusterList.remove(cluster)
+            
             for cluster in clusterList:  # remove not boundary vertex in boundaryList
                 cluster.cleanBoundary()
-            
+
         if self.debug:
-            print('even', evenClusterList)
+            print('eveneven', evenClusterList)
         treeList = self.spanningTree(evenClusterList)
         recoveryList = self.peeling(treeList)
-        # print('union find procedure done!')    
         return self.pos2binary(recoveryList)
                 
     def buildGraph(self, code,type):
@@ -496,7 +504,6 @@ class UnionFindDecoder(Decoder):
         Returns:
             Graph: abstract graph
         """
-        t = code.stabilizers.T.shape
         G = DecoderGraph(code,type)
         return G
      
