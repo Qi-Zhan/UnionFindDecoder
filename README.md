@@ -5,7 +5,7 @@ This project provide unionfind decoder for rotated surface code based qecsim pac
 ## Usage
 ```bash
 pip install qecsim
-python ...
+python playground.py
 ```
 
 ## Extension
