@@ -299,6 +299,7 @@ class Cluster():
         parity: there are odd/even syndrome in this cluster
         alive: when this cluster merge by another cluster or be even, alive = False
     """
+    id = 0
     def __init__(self, point):
         
         self.treeroot = point # vertex
@@ -307,6 +308,8 @@ class Cluster():
         # self.support = dict()
         self.parity = 1
         self.alive = True
+        self.id = Cluster.id
+        Cluster.id = Cluster.id + 1
         point.belong = self
         point.flip() # set syndrome
         
@@ -342,6 +345,7 @@ class Cluster():
             # update boundary
             c1.boundaryList += c2.boundaryList
             c1.edges += c2.edges
+            return 0, c2
             # c = self
             # print('parity', c1.parity)
             # print('belong', r1.rootbelong())
@@ -353,12 +357,13 @@ class Cluster():
             # update boundary
             c2.boundaryList += c1.boundaryList
             c2.edges += c1.edges 
+            return 1,c1
             # self = c
             # print('parity',c2.parity)
             # print('belong', r2.rootbelong())
             
     def cleanBoundary(self):
-        self.boundaryList = list(set(self.boundaryList)) # to do!!!
+        self.boundaryList = list(set(self.boundaryList))
         for i in range(len(self.boundaryList)-1,-1,-1):
             boundary = self.boundaryList[i]
             if boundary.isInsideVertex():
@@ -400,7 +405,8 @@ class Cluster():
             return self.treeroot == __o.treeroot
         return False
     
-
+    def __hash__(self) -> int:
+        return self.id
     
     def __str__(self):
         return str(self.treeroot)+" parity:"+str(self.parity)+" alive "+str(self.alive)
@@ -442,7 +448,8 @@ class UnionFindDecoder(Decoder):
             recoveryList (list): list contains recovery in (x, y)
         """
         clusterList = self.initialCluster(syndromeList, graph)
-        evenClusterList = []
+        clusterList = set(clusterList)
+        evenClusterList = set()
         while len(clusterList)>0: # odd cluster not empty      
             if self.debug:      
                 print('all',clusterList)
@@ -450,8 +457,8 @@ class UnionFindDecoder(Decoder):
             # clusterList.sort(key=lambda x: len(x.boundaryList)) # emm
             fusionList = []
             for cluster in clusterList:
-                if cluster.isEven()==False:
-                    fusionList += cluster.growHalf()
+                # if cluster.isEven()==False:
+                fusionList += cluster.growHalf()
             # print(fusionList)
             for fusionEdge in fusionList:
                 # print(fusionEdge)
@@ -466,25 +473,26 @@ class UnionFindDecoder(Decoder):
                     v.belong = u.rootbelong
                     continue
                 if u.find() != v.find():
-                    u.rootbelong().merge(v.rootbelong())
-                    
-            for i in range(len(clusterList)-1,-1,-1):
-                cluster = clusterList[i]
-                if cluster.alive is False:
-                    clusterList.remove(cluster)
-                elif cluster.isEven(): # find even cluster
-                    evenClusterList.append(cluster)
-                    clusterList.remove(cluster)
+                    flag,removeCluster = u.rootbelong().merge(v.rootbelong())
+                    if flag==0: # v->u
+                        cluster = u.rootbelong()
+                        if cluster.isEven()== False:
+                            evenClusterList.discard(cluster)
+                            clusterList.add(cluster)
+                        else:
+                            clusterList.discard(cluster)
+                            evenClusterList.add(cluster)
+                        clusterList.discard(removeCluster)
+                    else: # u->v
+                        cluster = v.rootbelong()
+                        if cluster.isEven()== False:
+                            evenClusterList.discard(cluster)
+                            clusterList.add(cluster)
+                        else:
+                            clusterList.discard(cluster)
+                            evenClusterList.add(cluster)
+                        clusterList.discard(removeCluster)
 
-            for i in range(len(evenClusterList)-1,-1,-1):
-                cluster = evenClusterList[i]
-            # for cluster in evenClusterList:
-                if cluster.alive and cluster.isEven() is False:
-                    clusterList.append(cluster)
-                    evenClusterList.remove(cluster)
-                if cluster.alive == False:
-                    evenClusterList.remove(cluster)
-            
             for cluster in clusterList:  # remove not boundary vertex in boundaryList
                 cluster.cleanBoundary()
 
