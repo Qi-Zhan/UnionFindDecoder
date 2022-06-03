@@ -1,6 +1,6 @@
 # UnionFindDecoder
 
-This project provide unionfind decoder for rotated surface code based qecsim package.
+This project provide unionfind decoder for rotated surface code based `qecsim` package.
 
 ## Usage
 ```bash
